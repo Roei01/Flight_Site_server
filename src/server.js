@@ -10,6 +10,7 @@ import fs from 'fs';
 import util from 'util';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import axios from 'axios';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -18,6 +19,7 @@ const port = process.env.PORT || 3000;
 // Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const API_KEY = 'e2ee763919bb4250a91454ab15fd1b48';
 
 
 const corsOptions = {
@@ -112,25 +114,40 @@ app.post('/login', async (req, res) => {
 
 
 
-// API לקבלת רשימת טיסות לפי פרמטרים
-app.get('/flights', (req, res) => {
-  const { origin, destination, date, time } = req.query;
+// API for fetching flights with parameters
+app.get('/flights', async (req, res) => {
+  const { origin, destination, date } = req.query;
 
-  // אם אין פרמטרים, נחזיר את כל הטיסות
-  if (!origin && !destination && !date && !time) {
-    return res.json(flights);
+  try {
+    const response = await axios.get('https://test.api.amadeus.com/v2/shopping/flight-offers', {
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      params: {
+        originLocationCode: origin,
+        destinationLocationCode: destination,
+        departureDate: date,
+        adults: 1
+      }
+    });
+
+    const flights = response.data.data.map(flight => ({
+      flightNumber: `${flight.itineraries[0].segments[0].carrierCode}${flight.itineraries[0].segments[0].number}`,
+      origin: flight.itineraries[0].segments[0].departure.iataCode,
+      destination: flight.itineraries[0].segments[0].arrival.iataCode,
+      date: flight.itineraries[0].segments[0].departure.at,
+      price: parseFloat(flight.price.total), // Ensure price is parsed correctly as a float
+      bookingLink: `https://www.amadeus.com/booking/flight/${flight.id}`
+    }));
+
+    res.json(flights);
+  } catch (error) {
+    console.error('Error fetching flight data:', error);
+    res.status(500).send('Error fetching flight data');
   }
-
-  // חיפוש טיסות לפי פרמטרים
-  const availableFlights = flights.filter(flight =>
-    (origin ? flight.origin === origin : true) &&
-    (destination ? flight.destination === destination : true) &&
-    (date ? flight.date === date : true) &&
-    (time ? flight.time === time : true)
-  );
-
-  res.json(availableFlights);
 });
+
+
 // API להזמנת טיסה
 app.post('/bookings', (req, res) => {
   const { flightNumber } = req.body;
