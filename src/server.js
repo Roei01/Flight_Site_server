@@ -24,6 +24,10 @@ const corsOptions = {
   origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
   optionsSuccessStatus: 200,
 };
+const flights = [
+  { flightNumber: 'TL123', origin: 'TLV', destination: 'NYC', date: '2024-12-01', time: '10:00', price: 500 },
+  { flightNumber: 'TL456', origin: 'TLV', destination: 'LAX', date: '2024-12-01', time: '15:00', price: 600 }
+];
 
 // Configure your email service
 const transporter = nodemailer.createTransport({
@@ -108,6 +112,35 @@ app.post('/login', async (req, res) => {
 
 
 
+// API לקבלת רשימת טיסות לפי פרמטרים
+app.get('/flights', (req, res) => {
+  const { origin, destination, date, time } = req.query;
+
+  // אם אין פרמטרים, נחזיר את כל הטיסות
+  if (!origin && !destination && !date && !time) {
+    return res.json(flights);
+  }
+
+  // חיפוש טיסות לפי פרמטרים
+  const availableFlights = flights.filter(flight =>
+    (origin ? flight.origin === origin : true) &&
+    (destination ? flight.destination === destination : true) &&
+    (date ? flight.date === date : true) &&
+    (time ? flight.time === time : true)
+  );
+
+  res.json(availableFlights);
+});
+// API להזמנת טיסה
+app.post('/bookings', (req, res) => {
+  const { flightNumber } = req.body;
+  const flight = flights.find(f => f.flightNumber === flightNumber);
+  if (flight) {
+    res.json({ message: `הזמנתך עבור הטיסה ${flightNumber} בוצעה בהצלחה!` });
+  } else {
+    res.status(404).json({ error: 'הטיסה לא נמצאה' });
+  }
+});
 
 
 // MongoDB connection
