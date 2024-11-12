@@ -41,7 +41,7 @@ jobs:
 
         
       - name: deploy app
-        run: curl https://api.render.com/deploy/srv-cq9qgsaju9rs73b8vag0?key=55IOr6u3ZWc
+        run: curl https://api.render.com/deploy/srv-csplgfe8ii6s73bp61n0?key=hFmLLfP-16g
 
 
         
