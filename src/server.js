@@ -23,7 +23,7 @@ const AMADEUS_TOKEN_URL = 'https://test.api.amadeus.com/v1/security/oauth2/token
 const AMADEUS_FLIGHTS_URL = 'https://test.api.amadeus.com/v2/shopping/flight-offers';
 
 const corsOptions = {
-  origin: 'http://localhost:4200', // Match your Angular app URL
+  origin: 'https://flight-site-client.onrender.com', // Match your Angular app URL
   optionsSuccessStatus: 200,
 };
 
@@ -180,7 +180,7 @@ app.post('/bookings', (req, res) => {
 
 // MongoDB connection
 mongoose
-  .connect('mongodb://localhost:27017/Flight_Site')
+  .connect('mongodb+srv://royinagar3:<QBqyVTkhtqiNgzgv>@flightsite.kbcwv.mongodb.net/?retryWrites=true&w=majority&appName=Flightsite')
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error(err));
 
