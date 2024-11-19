@@ -4,48 +4,34 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import multer from 'multer';
+import axios from 'axios';
 import nodemailer from 'nodemailer';
-import fs from 'fs';
-import util from 'util';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import axios from 'axios';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-
 // Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const API_KEY = 'e2ee763919bb4250a91454ab15fd1b48';
 
+// Constants
+const AMADEUS_API_KEY = 'YOUR_AMADEUS_API_KEY'; // Replace with Amadeus API key
+const AMADEUS_API_SECRET = 'YOUR_AMADEUS_API_SECRET'; // Replace with Amadeus API secret
+const AMADEUS_TOKEN_URL = 'https://test.api.amadeus.com/v1/security/oauth2/token';
+const AMADEUS_FLIGHTS_URL = 'https://test.api.amadeus.com/v2/shopping/flight-offers';
 
 const corsOptions = {
-  origin: 'http://localhost:4200', // Adjust this to match your Angular app's URL
+  origin: 'http://localhost:4200', // Match your Angular app URL
   optionsSuccessStatus: 200,
 };
-const flights = [
-  { flightNumber: 'TL123', origin: 'TLV', destination: 'NYC', date: '2024-12-01', time: '10:00', price: 500 },
-  { flightNumber: 'TL456', origin: 'TLV', destination: 'LAX', date: '2024-12-01', time: '15:00', price: 600 }
-];
-
-// Configure your email service
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  auth: {
-    user: 'royinagar2@gmail.com',
-    pass: 'pryk uqde apyp kuwl'
-  }
-});
 
 // Middleware
 app.use(bodyParser.json());
 app.use(cors(corsOptions));
 
-
-
+// MongoDB Schema
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   firstName: { type: String, required: true },
@@ -57,17 +43,15 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
-
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
-
   if (!token) {
     return res.status(401).send('Access denied');
   }
 
   try {
-    const decoded = jwt.verify(token, 'secretKey'); // חשוב להחליף 'secretKey' במפתח סודי אמיתי
+    const decoded = jwt.verify(token, 'secretKey');
     req.user = decoded;
     next();
   } catch (err) {
@@ -75,20 +59,37 @@ function authenticateToken(req, res, next) {
   }
 }
 
+// Helper function to fetch Amadeus access token
+async function getAmadeusToken() {
+  try {
+    const response = await axios.post(AMADEUS_TOKEN_URL, null, {
+      params: {
+        grant_type: 'client_credentials',
+        client_id: AMADEUS_API_KEY,
+        client_secret: AMADEUS_API_SECRET,
+      },
+    });
+    return response.data.access_token;
+  } catch (error) {
+    console.error('Error fetching Amadeus access token:', error.response?.data || error.message);
+    throw new Error('Failed to fetch Amadeus access token');
+  }
+}
+
 // Routes
+// User registration
 app.post('/register', async (req, res) => {
   const { username, firstName, lastName, email, password, dateOfBirth } = req.body;
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = new User({
-    username,
-    firstName,
-    lastName,
-    email,
-    password: hashedPassword,
-    dateOfBirth,
-  });
-
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({
+      username,
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+      dateOfBirth,
+    });
     await newUser.save();
     res.status(201).send({ message: 'User registered' });
   } catch (err) {
@@ -100,6 +101,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
+// User login
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
@@ -108,73 +110,83 @@ app.post('/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(400).send('Invalid credentials');
 
-  const token = jwt.sign({ id: user._id, username: user.username, firstName: user.firstName, lastName: user.lastName }, 'secretKey', { expiresIn: '1h' });
+  const token = jwt.sign(
+    { id: user._id, username: user.username, firstName: user.firstName, lastName: user.lastName },
+    'secretKey',
+    { expiresIn: '1h' }
+  );
   res.json({ token });
 });
 
-
-
-// API for fetching flights with parameters
+// Fetch flights
 app.get('/flights', async (req, res) => {
   const { origin, destination, date } = req.query;
 
+  if (!origin || !destination || !date) {
+    return res.status(400).json({ error: 'Missing required parameters: origin, destination, or date.' });
+  }
+
   try {
-    const response = await axios.get('https://test.api.amadeus.com/v2/shopping/flight-offers', {
+    const token = await getAmadeusToken();
+
+    const response = await axios.get(AMADEUS_FLIGHTS_URL, {
       headers: {
-        'Authorization': `Bearer ${API_KEY}`
+        Authorization: `Bearer ${token}`,
       },
       params: {
         originLocationCode: origin,
         destinationLocationCode: destination,
         departureDate: date,
-        adults: 1
-      }
+        adults: 1,
+      },
     });
 
     const flights = response.data.data.map(flight => ({
-      flightNumber: `${flight.itineraries[0].segments[0].carrierCode}${flight.itineraries[0].segments[0].number}`,
+      flightNumber: flight.itineraries[0].segments[0].carrierCode + flight.itineraries[0].segments[0].number,
       origin: flight.itineraries[0].segments[0].departure.iataCode,
       destination: flight.itineraries[0].segments[0].arrival.iataCode,
       date: flight.itineraries[0].segments[0].departure.at,
-      price: parseFloat(flight.price.total), // Ensure price is parsed correctly as a float
-      bookingLink: `https://www.amadeus.com/booking/flight/${flight.id}`
+      price: flight.price.total,
+      bookingLink: `https://www.example.com/book/${flight.id}`, // Replace with actual booking URL
     }));
 
     res.json(flights);
   } catch (error) {
-    console.error('Error fetching flight data:', error);
+    console.error('Error fetching flight data from Amadeus:', error.response?.data || error.message);
     res.status(500).send('Error fetching flight data');
   }
 });
 
-
-// API להזמנת טיסה
+// Book a flight
 app.post('/bookings', (req, res) => {
   const { flightNumber } = req.body;
+
+  if (!flightNumber) {
+    return res.status(400).send('Missing flight number');
+  }
+
+  // Find flight in sample data (you can extend this with a database lookup)
   const flight = flights.find(f => f.flightNumber === flightNumber);
+
   if (flight) {
-    res.json({ message: `הזמנתך עבור הטיסה ${flightNumber} בוצעה בהצלחה!` });
+    res.json({
+      message: `Your booking for flight ${flightNumber} was successful!`,
+      bookingLink: flight.bookingLink,
+    });
   } else {
-    res.status(404).json({ error: 'הטיסה לא נמצאה' });
+    res.status(404).json({ error: 'Flight not found' });
   }
 });
 
-
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/Flight_Site')
-  .then(() => {
-    console.log('MongoDB connected');
-  })
-  .catch((err) => {
-    console.error(err);
-  });
+mongoose
+  .connect('mongodb://localhost:27017/Flight_Site')
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error(err));
 
-// All other GET requests not handled before will return the Angular app
-app.get('*', (req, res) => {
-});
-
+// Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-//
-export default app;//
+
+export default app;
