@@ -180,8 +180,8 @@ app.post('/bookings', (req, res) => {
 
 // MongoDB connection
 mongoose
-.connect('mongodb://localhost:27017/Flight_Site')
-.then(() => console.log('MongoDB connected'))
+  .connect('mongodb+srv://royinagar3:<QBqyVTkhtqiNgzgv>@flightsite.kbcwv.mongodb.net/?retryWrites=true&w=majority&appName=Flightsite')
+  .then(() => console.log('MongoDB connected'))
   .catch(err => console.error(err));
 
 // Start server
