@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
 const AMADEUS_API_KEY = 'YOUR_AMADEUS_API_KEY'; // Replace with Amadeus API key
 const AMADEUS_API_SECRET = 'YOUR_AMADEUS_API_SECRET'; // Replace with Amadeus API secret
 const AMADEUS_TOKEN_URL = 'https://test.api.amadeus.com/v1/security/oauth2/token';
-const AMADEUS_FLIGHTS_URL = 'https://test.api.amadeus.com/v2/shopping/flight-offers';
+const AMADEUS_FLIGHTS_URL =  'https://test.api.amadeus.com/v2/shopping/flight-offers';
 
 const corsOptions = {
   origin: 'https://flight-site-client.onrender.com', // Match your Angular app URL
@@ -180,8 +180,8 @@ app.post('/bookings', (req, res) => {
 
 // MongoDB connection
 mongoose
-  .connect('mongodb+srv://royinagar3:<QBqyVTkhtqiNgzgv>@flightsite.kbcwv.mongodb.net/?retryWrites=true&w=majority&appName=Flightsite')
-  .then(() => console.log('MongoDB connected'))
+.connect('mongodb://localhost:27017/Flight_Site')
+.then(() => console.log('MongoDB connected'))
   .catch(err => console.error(err));
 
 // Start server
