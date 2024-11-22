@@ -215,7 +215,25 @@ mongoose
         { flightNumber: 'FL456', origin: 'TLV', destination: 'LAX', date: '2024-12-02', price: 600, seatsAvailable: 15 },
         { flightNumber: 'FL789', origin: 'JFK', destination: 'TLV', date: '2024-12-03', price: 550, seatsAvailable: 25 },
         { flightNumber: 'FL101', origin: 'LAX', destination: 'TLV', date: '2024-12-04', price: 650, seatsAvailable: 10 },
-      ]);
+        { flightNumber: 'FL202', origin: 'TLV', destination: 'CDG', date: '2024-12-05', price: 300, seatsAvailable: 30 },
+        { flightNumber: 'FL303', origin: 'CDG', destination: 'TLV', date: '2024-12-06', price: 350, seatsAvailable: 28 },
+        { flightNumber: 'FL404', origin: 'LHR', destination: 'JFK', date: '2024-12-07', price: 450, seatsAvailable: 18 },
+        { flightNumber: 'FL505', origin: 'JFK', destination: 'LHR', date: '2024-12-08', price: 500, seatsAvailable: 22 },
+        { flightNumber: 'FL606', origin: 'DXB', destination: 'TLV', date: '2024-12-09', price: 400, seatsAvailable: 35 },
+        { flightNumber: 'FL707', origin: 'TLV', destination: 'DXB', date: '2024-12-10', price: 420, seatsAvailable: 32 },
+        { flightNumber: 'FL808', origin: 'SFO', destination: 'LAX', date: '2024-12-11', price: 150, seatsAvailable: 50 },
+        { flightNumber: 'FL909', origin: 'LAX', destination: 'SFO', date: '2024-12-12', price: 140, seatsAvailable: 48 },
+        { flightNumber: 'FL111', origin: 'TLV', destination: 'BKK', date: '2024-12-13', price: 700, seatsAvailable: 25 },
+        { flightNumber: 'FL222', origin: 'BKK', destination: 'TLV', date: '2024-12-14', price: 680, seatsAvailable: 23 },
+        { flightNumber: 'FL333', origin: 'JFK', destination: 'LAX', date: '2024-12-15', price: 320, seatsAvailable: 40 },
+        { flightNumber: 'FL444', origin: 'LAX', destination: 'JFK', date: '2024-12-16', price: 310, seatsAvailable: 42 },
+        { flightNumber: 'FL555', origin: 'TLV', destination: 'ATH', date: '2024-12-17', price: 220, seatsAvailable: 30 },
+        { flightNumber: 'FL666', origin: 'ATH', destination: 'TLV', date: '2024-12-18', price: 210, seatsAvailable: 28 },
+        { flightNumber: 'FL777', origin: 'TLV', destination: 'FRA', date: '2024-12-19', price: 400, seatsAvailable: 25 },
+        { flightNumber: 'FL888', origin: 'FRA', destination: 'TLV', date: '2024-12-20', price: 390, seatsAvailable: 27 },
+        { flightNumber: 'FL999', origin: 'TLV', destination: 'SYD', date: '2024-12-21', price: 1200, seatsAvailable: 10 },
+        { flightNumber: 'FL000', origin: 'SYD', destination: 'TLV', date: '2024-12-22', price: 1150, seatsAvailable: 12 },
+       ]);
       console.log('Sample flights initialized');
     }
   })
