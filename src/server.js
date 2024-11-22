@@ -4,34 +4,15 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import axios from 'axios';
-import nodemailer from 'nodemailer';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Define __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Constants
-const AMADEUS_API_KEY = 'YOUR_AMADEUS_API_KEY'; // Replace with Amadeus API key
-const AMADEUS_API_SECRET = 'YOUR_AMADEUS_API_SECRET'; // Replace with Amadeus API secret
-const AMADEUS_TOKEN_URL = 'https://test.api.amadeus.com/v1/security/oauth2/token';
-const AMADEUS_FLIGHTS_URL =  'https://test.api.amadeus.com/v2/shopping/flight-offers';
-
-const corsOptions = {
-  origin: 'https://flight-site-client.onrender.com', // Match your Angular app URL
-  optionsSuccessStatus: 200,
-};
-
 // Middleware
 app.use(bodyParser.json());
-app.use(cors(corsOptions));
+app.use(cors());
 
-// MongoDB Schema
+// MongoDB Schemas
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   firstName: { type: String, required: true },
@@ -41,7 +22,24 @@ const UserSchema = new mongoose.Schema({
   dateOfBirth: { type: Date, required: true },
 });
 
+const FlightSchema = new mongoose.Schema({
+  flightNumber: { type: String, required: true, unique: true },
+  origin: { type: String, required: true },
+  destination: { type: String, required: true },
+  date: { type: String, required: true },
+  price: { type: Number, required: true },
+  seatsAvailable: { type: Number, required: true },
+});
+
+const BookingSchema = new mongoose.Schema({
+  flightNumber: { type: String, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  seatsBooked: { type: Number, required: true },
+});
+
 const User = mongoose.model('User', UserSchema);
+const Flight = mongoose.model('Flight', FlightSchema);
+const Booking = mongoose.model('Booking', BookingSchema);
 
 // Middleware to authenticate token
 function authenticateToken(req, res, next) {
@@ -56,23 +54,6 @@ function authenticateToken(req, res, next) {
     next();
   } catch (err) {
     res.status(400).send('Invalid token');
-  }
-}
-
-// Helper function to fetch Amadeus access token
-async function getAmadeusToken() {
-  try {
-    const response = await axios.post(AMADEUS_TOKEN_URL, null, {
-      params: {
-        grant_type: 'client_credentials',
-        client_id: AMADEUS_API_KEY,
-        client_secret: AMADEUS_API_SECRET,
-      },
-    });
-    return response.data.access_token;
-  } catch (error) {
-    console.error('Error fetching Amadeus access token:', error.response?.data || error.message);
-    throw new Error('Failed to fetch Amadeus access token');
   }
 }
 
@@ -118,70 +99,124 @@ app.post('/login', async (req, res) => {
   res.json({ token });
 });
 
-// Fetch flights
+// Fetch all flights
 app.get('/flights', async (req, res) => {
-  const { origin, destination, date } = req.query;
+  try {
+    const { origin, destination, date } = req.query;
 
-  if (!origin || !destination || !date) {
-    return res.status(400).json({ error: 'Missing required parameters: origin, destination, or date.' });
+    // בניית מסנן דינמי
+    const searchCriteria = {};
+    if (origin) searchCriteria.origin = origin;
+    if (destination) searchCriteria.destination = destination;
+    if (date) searchCriteria.date = date;
+
+    // חיפוש טיסות בהתבסס על המסנן
+    const flights = await Flight.find(searchCriteria);
+    res.json(flights);
+  } catch (error) {
+    console.error('Error searching flights:', error.message);
+    res.status(500).send('Error searching flights');
+  }
+});
+
+// Fetch user bookings
+app.get('/bookings', authenticateToken, async (req, res) => {
+  try {
+    const bookings = await Booking.find({ userId: req.user.id });
+    res.json(bookings);
+  } catch (error) {
+    console.error('Error fetching bookings:', error.message);
+    res.status(500).send('Error fetching bookings');
+  }
+});
+app.post('/bookings', authenticateToken, async (req, res) => {
+  const { flightNumber, seats } = req.body;
+
+  if (!flightNumber || !seats) {
+    return res.status(400).send('Missing flight number or seats');
   }
 
   try {
-    const token = await getAmadeusToken();
+    const flight = await Flight.findOne({ flightNumber });
 
-    const response = await axios.get(AMADEUS_FLIGHTS_URL, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      params: {
-        originLocationCode: origin,
-        destinationLocationCode: destination,
-        departureDate: date,
-        adults: 1,
-      },
+    if (!flight) {
+      return res.status(404).send('Flight not found');
+    }
+
+    // Check if the user already has a booking
+    const existingBooking = await Booking.findOne({ flightNumber, userId: req.user.id });
+
+    if (existingBooking) {
+      // Cancel the existing booking
+      flight.seatsAvailable += existingBooking.seatsBooked; // Return seats to the flight
+      await flight.save();
+
+      await Booking.deleteOne({ _id: existingBooking._id }); // Delete the booking
+      return res.json({ message: 'Booking canceled successfully', flight });
+    }
+
+    // Create a new booking if not booked already
+    if (flight.seatsAvailable < seats) {
+      return res.status(400).send('Not enough seats available');
+    }
+
+    flight.seatsAvailable -= seats;
+    await flight.save();
+
+    const newBooking = new Booking({
+      flightNumber,
+      userId: req.user.id,
+      seatsBooked: seats,
     });
+    await newBooking.save();
 
-    const flights = response.data.data.map(flight => ({
-      flightNumber: flight.itineraries[0].segments[0].carrierCode + flight.itineraries[0].segments[0].number,
-      origin: flight.itineraries[0].segments[0].departure.iataCode,
-      destination: flight.itineraries[0].segments[0].arrival.iataCode,
-      date: flight.itineraries[0].segments[0].departure.at,
-      price: flight.price.total,
-      bookingLink: `https://www.example.com/book/${flight.id}`, // Replace with actual booking URL
-    }));
+    res.json({ message: 'Booking successful', flight });
+  } catch (error) {
+    console.error('Error processing booking:', error.message);
+    res.status(500).send('Error processing booking');
+  }
+});
 
+app.get('/search-flights', async (req, res) => {
+  const { origin, destination, date } = req.query;
+
+  try {
+    // בניית קריטריונים דינמיים על בסיס הפרמטרים שהתקבלו
+    const searchCriteria = {};
+    if (origin) searchCriteria.origin = { $regex: new RegExp(origin, 'i') }; // חיפוש גמיש
+    if (destination) searchCriteria.destination = { $regex: new RegExp(destination, 'i') }; // חיפוש גמיש
+    if (date) searchCriteria.date = date; // חיפוש מדויק לפי תאריך
+
+    const flights = await Flight.find(searchCriteria); // חיפוש בבסיס הנתונים
     res.json(flights);
   } catch (error) {
-    console.error('Error fetching flight data from Amadeus:', error.response?.data || error.message);
-    res.status(500).send('Error fetching flight data');
+    console.error('Error searching flights:', error.message);
+    res.status(500).send('Error searching flights');
   }
 });
 
-// Book a flight
-app.post('/bookings', (req, res) => {
-  const { flightNumber } = req.body;
 
-  if (!flightNumber) {
-    return res.status(400).send('Missing flight number');
-  }
 
-  // Find flight in sample data (you can extend this with a database lookup)
-  const flight = flights.find(f => f.flightNumber === flightNumber);
 
-  if (flight) {
-    res.json({
-      message: `Your booking for flight ${flightNumber} was successful!`,
-      bookingLink: flight.bookingLink,
-    });
-  } else {
-    res.status(404).json({ error: 'Flight not found' });
-  }
-});
 
 // MongoDB connection
 mongoose
-  .connect('mongodb+srv://royinagar3:<QBqyVTkhtqiNgzgv>@flightsite.kbcwv.mongodb.net/?retryWrites=true&w=majority&appName=Flightsite')
-  .then(() => console.log('MongoDB connected'))
+  .connect('mongodb://localhost:27017/Flight_Site')
+  .then(async () => {
+    console.log('MongoDB connected');
+
+    // Initialize sample flights
+    const existingFlights = await Flight.find();
+    if (existingFlights.length === 0) {
+      await Flight.insertMany([
+        { flightNumber: 'FL123', origin: 'TLV', destination: 'JFK', date: '2024-12-01', price: 500, seatsAvailable: 20 },
+        { flightNumber: 'FL456', origin: 'TLV', destination: 'LAX', date: '2024-12-02', price: 600, seatsAvailable: 15 },
+        { flightNumber: 'FL789', origin: 'JFK', destination: 'TLV', date: '2024-12-03', price: 550, seatsAvailable: 25 },
+        { flightNumber: 'FL101', origin: 'LAX', destination: 'TLV', date: '2024-12-04', price: 650, seatsAvailable: 10 },
+      ]);
+      console.log('Sample flights initialized');
+    }
+  })
   .catch(err => console.error(err));
 
 // Start server
