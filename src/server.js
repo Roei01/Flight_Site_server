@@ -232,8 +232,7 @@ mongoose
         { flightNumber: 'FL777', origin: 'TLV', destination: 'FRA', date: '2024-12-19', price: 400, seatsAvailable: 25 },
         { flightNumber: 'FL888', origin: 'FRA', destination: 'TLV', date: '2024-12-20', price: 390, seatsAvailable: 27 },
         { flightNumber: 'FL999', origin: 'TLV', destination: 'SYD', date: '2024-12-21', price: 1200, seatsAvailable: 10 },
-        { flightNumber: 'FL000', origin: 'SYD', destination: 'TLV', date: '2024-12-22', price: 1150, seatsAvailable: 12 },
-       ]);
+        { flightNumber: 'FL000', origin: 'SYD', destination: 'TLV', date: '2024-12-22', price: 1150, seatsAvailable: 12 },]);
       console.log('Sample flights initialized');
     }
   })
