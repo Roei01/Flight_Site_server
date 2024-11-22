@@ -198,12 +198,14 @@ app.get('/search-flights', async (req, res) => {
 
 
 
-
 // MongoDB connection
 mongoose
-  .connect('mongodb://localhost:27017/Flight_Site')
+  .connect(
+    'mongodb+srv://royinagar3:oBpHawbyp9N4oTUl@flightsite.kbcwv.mongodb.net/?retryWrites=true&w=majority&appName=Flightsite',
+    { useNewUrlParser: true, useUnifiedTopology: true }
+  )
   .then(async () => {
-    console.log('MongoDB connected');
+    console.log('MongoDB connected to Atlas');
 
     // Initialize sample flights
     const existingFlights = await Flight.find();
@@ -217,7 +219,7 @@ mongoose
       console.log('Sample flights initialized');
     }
   })
-  .catch(err => console.error(err));
+  .catch(err => console.error('Error connecting to MongoDB Atlas:', err));
 
 // Start server
 app.listen(port, () => {
