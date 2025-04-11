@@ -10,4 +10,4 @@ Then write npm run start and the website works
 
 Make sure to do this on both the client and the server so that things work
 
-Also, make sure that you are moving to the dev branch so that it works because it will not work on the main branch
+Also, make sure that you are moving to the dev branch so that it works because it will not work on the main branch.
